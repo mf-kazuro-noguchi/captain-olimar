@@ -522,7 +522,7 @@ function animateCompanionReel(
   });
 }
 
-function adjustSlotDisplayForFinal(slotReel) {
+function adjustSlotDisplay(slotReel, options = {}) {
   if (!slotReel) {
     return;
   }
@@ -532,6 +532,12 @@ function adjustSlotDisplayForFinal(slotReel) {
     return;
   }
 
+  const {
+    extraPadding = 16,
+    transitionDuration = 0.35,
+    overflow = "visible",
+  } = options;
+
   const updateDisplaySize = () => {
     const finalItem = slotReel.firstElementChild;
     if (!finalItem) {
@@ -540,14 +546,54 @@ function adjustSlotDisplayForFinal(slotReel) {
 
     const finalRect = finalItem.getBoundingClientRect();
     if (finalRect.height > 0) {
-      slotDisplay.style.transition = "height 0.35s ease";
-      slotDisplay.style.height = `${Math.ceil(finalRect.height + 16)}px`;
+      slotDisplay.style.transition = `height ${transitionDuration}s ease`;
+      slotDisplay.style.height = `${Math.ceil(
+        finalRect.height + extraPadding
+      )}px`;
     }
 
-    slotDisplay.style.overflow = "visible";
+    slotDisplay.style.overflow = overflow;
   };
 
   requestAnimationFrame(updateDisplaySize);
+}
+
+function updateCompanionStage(
+  companion,
+  { statusText = null, isFinal = false } = {}
+) {
+  const container = document.getElementById("companionRoulette");
+  const nameEl = document.getElementById("companionNameDisplay");
+  const countryEl = document.getElementById("companionCountryDisplay");
+  const statusEl = document.getElementById("companionStatusText");
+  const lightEl = document.getElementById("companionIpponLight");
+  const wazaEl = document.getElementById("companionScoreWaza");
+  const ipponEl = document.getElementById("companionScoreIppon");
+
+  if (nameEl) {
+    nameEl.textContent = companion?.name || "選手未決定";
+  }
+  if (countryEl) {
+    countryEl.textContent = companion?.country || "---";
+  }
+  if (statusEl && typeof statusText === "string") {
+    statusEl.textContent = statusText;
+  }
+
+  if (wazaEl) {
+    wazaEl.classList.toggle("is-active", !isFinal && Boolean(companion));
+  }
+  if (ipponEl) {
+    ipponEl.classList.toggle("is-active", isFinal && Boolean(companion));
+  }
+  if (lightEl) {
+    lightEl.classList.toggle("is-glowing", isFinal && Boolean(companion));
+  }
+  if (container) {
+    const hasCompanion = Boolean(companion);
+    container.classList.toggle("is-animating", hasCompanion && !isFinal);
+    container.classList.toggle("is-complete", isFinal && hasCompanion);
+  }
 }
 
 // 🎰 同行者スロット演出（全員表示版）
@@ -592,6 +638,14 @@ async function runCompanionRoulette() {
     slotDisplay.style.overflow = "hidden";
   }
 
+  const initialWinnerCandidates = COMPANION_POOL.filter(
+    (companion) => companion.name !== COMPANION_FINAL.name
+  );
+  const initialWinner =
+    initialWinnerCandidates[
+      Math.floor(Math.random() * initialWinnerCandidates.length)
+    ] || COMPANION_FINAL;
+
   const slotItems = [];
 
   for (let round = 0; round < 5; round++) {
@@ -599,10 +653,10 @@ async function runCompanionRoulette() {
     slotItems.push(...shuffled);
   }
 
-  slotItems.push(COMPANION_FINAL);
+  slotItems.push(initialWinner);
 
   console.log(
-    `🎰 スロット表示数: ${slotItems.length}人`,
+    `🎰 スロット表示数: ${slotItems.length}人 (初回当選候補: ${initialWinner.name})`,
     slotItems.map((c) => c.name)
   );
 
@@ -626,6 +680,7 @@ async function runCompanionRoulette() {
       : 260;
     const spinDuration = 10000;
     const pauseBeforeFinalReveal = 800;
+    const initialResultHold = 1400;
     const pauseAfterFinalReveal = 3000;
 
     await animateCompanionReel(
@@ -641,15 +696,35 @@ async function runCompanionRoulette() {
     await delay(pauseBeforeFinalReveal);
 
     slotReel.innerHTML = `
+      <div class="companion-slot-item final is-fake">
+        <img src="${initialWinner.image}" alt="${initialWinner.name}" class="companion-slot-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22%23999%22%3E👤%3C/text%3E%3C/svg%3E'">
+        <div class="companion-slot-name">${initialWinner.name} 🎉</div>
+      </div>
+    `;
+    slotReel.style.transition = "transform 0.35s ease-out";
+    slotReel.style.transform = "translateY(0)";
+    adjustSlotDisplay(slotReel, { overflow: "hidden" });
+
+    updateCompanionStage(initialWinner, {
+      statusText: `${initialWinner.name}さんが当選!?`,
+      isFinal: false,
+    });
+
+    await delay(initialResultHold);
+
+    slotReel.innerHTML = `
       <div class="companion-slot-item final">
         <img src="${COMPANION_FINAL.image}" alt="${COMPANION_FINAL.name}" class="companion-slot-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22%23999%22%3E👤%3C/text%3E%3C/svg%3E'">
         <div class="companion-slot-name">${COMPANION_FINAL.name} 🥇</div>
       </div>
     `;
-    slotReel.style.transition = "transform 0.35s ease-out";
-    slotReel.style.transform = "translateY(0)";
 
-    adjustSlotDisplayForFinal(slotReel);
+    adjustSlotDisplay(slotReel);
+
+    updateCompanionStage(COMPANION_FINAL, {
+      statusText: `${COMPANION_FINAL.name}さんが割り込んで優勝！`,
+      isFinal: true,
+    });
 
     selectedCompanion = COMPANION_FINAL;
 
