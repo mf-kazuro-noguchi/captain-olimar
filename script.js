@@ -522,6 +522,34 @@ function animateCompanionReel(
   });
 }
 
+function adjustSlotDisplayForFinal(slotReel) {
+  if (!slotReel) {
+    return;
+  }
+
+  const slotDisplay = slotReel.closest(".companion-slot-display");
+  if (!slotDisplay) {
+    return;
+  }
+
+  const updateDisplaySize = () => {
+    const finalItem = slotReel.firstElementChild;
+    if (!finalItem) {
+      return;
+    }
+
+    const finalRect = finalItem.getBoundingClientRect();
+    if (finalRect.height > 0) {
+      slotDisplay.style.transition = "height 0.35s ease";
+      slotDisplay.style.height = `${Math.ceil(finalRect.height + 16)}px`;
+    }
+
+    slotDisplay.style.overflow = "visible";
+  };
+
+  requestAnimationFrame(updateDisplaySize);
+}
+
 // 🎰 同行者スロット演出（全員表示版）
 async function runCompanionRoulette() {
   // スロットマシン要素を動的に作成
@@ -556,6 +584,12 @@ async function runCompanionRoulette() {
     }
     selectedCompanion = COMPANION_FINAL;
     return COMPANION_FINAL;
+  }
+
+  const slotDisplay = slotReel.closest(".companion-slot-display");
+  if (slotDisplay) {
+    slotDisplay.style.height = "";
+    slotDisplay.style.overflow = "hidden";
   }
 
   const slotItems = [];
@@ -614,6 +648,8 @@ async function runCompanionRoulette() {
     `;
     slotReel.style.transition = "transform 0.35s ease-out";
     slotReel.style.transform = "translateY(0)";
+
+    adjustSlotDisplayForFinal(slotReel);
 
     selectedCompanion = COMPANION_FINAL;
 
