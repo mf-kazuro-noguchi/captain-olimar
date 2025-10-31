@@ -2,6 +2,7 @@ let userLocation = null;
 let allRestaurants = [];
 let filteredRestaurants = [];
 
+// DOMが完全に読み込まれてから実行
 document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('searchBtn');
   const rouletteBtn = document.getElementById('rouletteBtn');
@@ -123,7 +124,6 @@ async function searchNearbyRestaurants() {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': CONFIG.GOOGLE_API_KEY,
-        // 🆕 currentOpeningHours, regularOpeningHours を追加
         'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.googleMapsUri,places.id,places.photos,places.currentOpeningHours,places.regularOpeningHours'
       },
       body: JSON.stringify(requestBody)
@@ -174,7 +174,7 @@ function formatRestaurantData(place) {
     photoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${CONFIG.GOOGLE_API_KEY}&maxHeightPx=400&maxWidthPx=600`;
   }
   
-  // 🆕 営業時間情報を整形
+  // 営業時間情報を整形
   const openingHoursData = parseOpeningHours(place.currentOpeningHours, place.regularOpeningHours);
   
   return {
@@ -191,11 +191,11 @@ function formatRestaurantData(place) {
     googleMapsUri: place.googleMapsUri || null,
     mood: extractMood(place.types || []),
     photoUrl: photoUrl,
-    openingHours: openingHoursData  // 🆕 営業時間データ
+    openingHours: openingHoursData
   };
 }
 
-// 🆕 営業時間データを解析
+// 営業時間データを解析
 function parseOpeningHours(currentHours, regularHours) {
   const result = {
     isOpen: null,
@@ -266,7 +266,7 @@ function extractMood(types) {
 function applyFiltersAndDisplay() {
   const budget = document.querySelector('input[name="budget"]:checked')?.value;
   const mood = document.querySelector('input[name="mood"]:checked')?.value;
-  const hours = document.querySelector('input[name="hours"]:checked')?.value;  // 🆕 営業時間
+  const hours = document.querySelector('input[name="hours"]:checked')?.value;
   
   filteredRestaurants = allRestaurants.filter(restaurant => {
     // 予算フィルター
@@ -283,7 +283,7 @@ function applyFiltersAndDisplay() {
       }
     }
     
-    // 🆕 営業時間フィルター
+    // 営業時間フィルター
     if (hours !== 'all') {
       if (!filterByOpeningHours(restaurant.openingHours, hours)) {
         return false;
@@ -317,22 +317,19 @@ function filterByBudget(priceLevel, budget) {
   return true;
 }
 
-// 🆕 営業時間でフィルタリング
+// 営業時間でフィルタリング
 function filterByOpeningHours(openingHours, hoursFilter) {
-  if (!openingHours) return true; // 営業時間情報がない場合は表示
+  if (!openingHours) return true;
   
   if (hoursFilter === 'open') {
-    // 今営業中
     return openingHours.isOpen === true;
   }
   
   if (hoursFilter === '24h') {
-    // 24時間営業
     return openingHours.is24Hours === true;
   }
   
   if (hoursFilter === 'late') {
-    // 深夜営業
     return openingHours.isLateNight === true;
   }
   
@@ -377,16 +374,13 @@ function createRestaurantCard(restaurant, isHighlight = false) {
   const card = document.createElement('div');
   card.className = isHighlight ? 'restaurant-card selected-restaurant' : 'restaurant-card';
   
+  // 価格レベルから具体的な価格帯を推定
   let priceDisplay = '不明';
+  let priceRangeDisplay = '';
+  
   if (restaurant.priceLevel) {
-    const priceMap = {
-      'PRICE_LEVEL_FREE': '無料',
-      'PRICE_LEVEL_INEXPENSIVE': '¥',
-      'PRICE_LEVEL_MODERATE': '¥¥',
-      'PRICE_LEVEL_EXPENSIVE': '¥¥¥',
-      'PRICE_LEVEL_VERY_EXPENSIVE': '¥¥¥¥'
-    };
-    priceDisplay = priceMap[restaurant.priceLevel] || '不明';
+    const priceInfo = getPriceInfo(restaurant.priceLevel);
+    priceRangeDisplay = priceInfo.range;
   }
   
   // 画像
@@ -394,7 +388,7 @@ function createRestaurantCard(restaurant, isHighlight = false) {
     ? `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-photo" onerror="this.style.display='none'">` 
     : '<div class="no-photo">📷 画像なし</div>';
   
-  // 🆕 営業状況バッジ
+  // 営業状況バッジ
   let openStatusHTML = '';
   if (restaurant.openingHours) {
     if (restaurant.openingHours.isOpen === true) {
@@ -405,7 +399,6 @@ function createRestaurantCard(restaurant, isHighlight = false) {
       openStatusHTML = '<span class="open-status unknown">不明</span>';
     }
     
-    // 24時間営業または深夜営業のバッジ
     if (restaurant.openingHours.is24Hours) {
       openStatusHTML += '<span class="open-status open">24h</span>';
     } else if (restaurant.openingHours.isLateNight) {
@@ -413,7 +406,7 @@ function createRestaurantCard(restaurant, isHighlight = false) {
     }
   }
   
-  // 🆕 営業時間詳細
+  // 営業時間詳細
   let hoursDetailHTML = '';
   if (restaurant.openingHours && restaurant.openingHours.weekdayTexts.length > 0) {
     hoursDetailHTML = '<div class="opening-hours">';
@@ -431,7 +424,7 @@ function createRestaurantCard(restaurant, isHighlight = false) {
       <p>📍 ${restaurant.address}</p>
       <p>🚶 徒歩約${restaurant.travelTime}分 (${restaurant.distance}m)</p>
       <p>⭐ 評価: ${restaurant.rating ? restaurant.rating.toFixed(1) + ' / 5.0' : '不明'}</p>
-      <p>💰 価格: ${priceDisplay}</p>
+      <p>💰 価格帯: ${priceRangeDisplay ? `<span class="price-range">(${priceRangeDisplay})</span>` : ''}</p>
       ${hoursDetailHTML}
       ${restaurant.googleMapsUri ? 
         `<a href="${restaurant.googleMapsUri}" target="_blank" class="map-link">📍 地図で見る</a>` : 
@@ -440,6 +433,34 @@ function createRestaurantCard(restaurant, isHighlight = false) {
   `;
   
   return card;
+}
+
+// 価格レベルから価格帯情報を取得
+function getPriceInfo(priceLevel) {
+  const priceMap = {
+    'PRICE_LEVEL_FREE': {
+      symbol: '無料',
+      range: ''
+    },
+    'PRICE_LEVEL_INEXPENSIVE': {
+      symbol: '¥',
+      range: '〜500円'
+    },
+    'PRICE_LEVEL_MODERATE': {
+      symbol: '¥¥',
+      range: '500円〜1,000円'
+    },
+    'PRICE_LEVEL_EXPENSIVE': {
+      symbol: '¥¥¥',
+      range: '1,000円〜2,000円'
+    },
+    'PRICE_LEVEL_VERY_EXPENSIVE': {
+      symbol: '¥¥¥¥',
+      range: '2,000円〜'
+    }
+  };
+  
+  return priceMap[priceLevel] || { symbol: '不明', range: '' };
 }
 
 // 結果件数を更新
@@ -471,7 +492,7 @@ function toggleButtons(enabled) {
   }
 }
 
-// 2地点間の距離を計算
+// 2地点間の距離を計算（Haversine公式）
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const φ1 = lat1 * Math.PI / 180;
