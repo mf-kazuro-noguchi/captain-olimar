@@ -8,7 +8,7 @@ const COMPANION_POOL = [
   { name: "福室さん", country: "JPN", image: "images/fukumuro.jpg" },
   { name: "興津さん", country: "JPN", image: "images/okitsu.jpg" },
   { name: "森さん", country: "JPN", image: "images/mori.jpg" },
-  { name: "田中さん", country: "JPN", image: "images/tanaka.jpg" },
+  { name: "木村さん", country: "JPN", image: "images/kimura.jpg" },
   { name: "佐藤さん", country: "JPN", image: "images/sato.jpg" },
   { name: "鈴木さん", country: "JPN", image: "images/suzuki.jpg" },
   { name: "高橋さん", country: "JPN", image: "images/takahashi.jpg" },
