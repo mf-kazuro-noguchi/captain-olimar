@@ -163,9 +163,9 @@ async function searchNearbyRestaurants() {
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONFIG.GOOGLE_API_KEY,
-        // 🆕 places.photos を追加
+        // 🆕 currentOpeningHours, regularOpeningHours を追加
         "X-Goog-FieldMask":
-          "places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.googleMapsUri,places.id,places.photos",
+          "places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.googleMapsUri,places.id,places.photos,places.currentOpeningHours,places.regularOpeningHours",
       },
       body: JSON.stringify(requestBody),
     });
@@ -211,13 +211,18 @@ function formatRestaurantData(place) {
     place.location.longitude
   );
 
-  // 🆕 写真URLを生成
+  // 写真URLを生成
   let photoUrl = null;
   if (place.photos && place.photos.length > 0) {
     const photoName = place.photos[0].name;
-    // Places API (New) のPhoto URL形式
     photoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${CONFIG.GOOGLE_API_KEY}&maxHeightPx=400&maxWidthPx=600`;
   }
+
+  // 🆕 営業時間情報を整形
+  const openingHoursData = parseOpeningHours(
+    place.currentOpeningHours,
+    place.regularOpeningHours
+  );
 
   return {
     id: place.id,
@@ -232,8 +237,56 @@ function formatRestaurantData(place) {
     types: place.types || [],
     googleMapsUri: place.googleMapsUri || null,
     mood: extractMood(place.types || []),
-    photoUrl: photoUrl, // 🆕 写真URLを追加
+    photoUrl: photoUrl,
+    openingHours: openingHoursData, // 🆕 営業時間データ
   };
+}
+
+// 🆕 営業時間データを解析
+function parseOpeningHours(currentHours, regularHours) {
+  const result = {
+    isOpen: null,
+    is24Hours: false,
+    isLateNight: false,
+    weekdayTexts: [],
+  };
+
+  // 現在営業中かどうか
+  if (currentHours && currentHours.openNow !== undefined) {
+    result.isOpen = currentHours.openNow;
+  }
+
+  // 営業時間の詳細
+  if (regularHours) {
+    // 24時間営業の判定
+    if (regularHours.periods && regularHours.periods.length === 1) {
+      const period = regularHours.periods[0];
+      if (period.open && !period.close) {
+        result.is24Hours = true;
+      }
+    }
+
+    // 深夜営業の判定（23時以降も営業）
+    if (regularHours.periods) {
+      result.isLateNight = regularHours.periods.some((period) => {
+        if (period.close && period.close.hour >= 23) {
+          return true;
+        }
+        // 翌日の早朝まで営業（例：2時まで）
+        if (period.close && period.close.day !== period.open?.day) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // 曜日別営業時間テキスト
+    if (regularHours.weekdayDescriptions) {
+      result.weekdayTexts = regularHours.weekdayDescriptions;
+    }
+  }
+
+  return result;
 }
 
 // typesから気分を判定
@@ -285,15 +338,26 @@ function applyFiltersAndDisplay() {
   const budget = document.querySelector('input[name="budget"]:checked')?.value;
   const mood = document.querySelector('input[name="mood"]:checked')?.value;
 
+  const hours = document.querySelector('input[name="hours"]:checked')?.value; // 🆕 営業時間
+
   filteredRestaurants = allRestaurants.filter((restaurant) => {
+    // 予算フィルター
     if (budget !== "all") {
       if (!filterByBudget(restaurant.priceLevel, budget)) {
         return false;
       }
     }
 
+    // 気分フィルター
     if (mood !== "all") {
       if (!restaurant.mood.includes(mood)) {
+        return false;
+      }
+    }
+
+    // 🆕 営業時間フィルター
+    if (hours !== "all") {
+      if (!filterByOpeningHours(restaurant.openingHours, hours)) {
         return false;
       }
     }
@@ -321,6 +385,28 @@ function filterByBudget(priceLevel, budget) {
   if (budget === "500") return level <= 1;
   if (budget === "1000") return level <= 2;
   if (budget === "over") return level >= 3;
+
+  return true;
+}
+
+// 🆕 営業時間でフィルタリング
+function filterByOpeningHours(openingHours, hoursFilter) {
+  if (!openingHours) return true; // 営業時間情報がない場合は表示
+
+  if (hoursFilter === "open") {
+    // 今営業中
+    return openingHours.isOpen === true;
+  }
+
+  if (hoursFilter === "24h") {
+    // 24時間営業
+    return openingHours.is24Hours === true;
+  }
+
+  if (hoursFilter === "late") {
+    // 深夜営業
+    return openingHours.isLateNight === true;
+  }
 
   return true;
 }
@@ -395,15 +481,48 @@ function createRestaurantCard(restaurant, isHighlight = false) {
     priceDisplay = priceMap[restaurant.priceLevel] || "不明";
   }
 
-  // 🆕 画像があれば表示
+  // 画像
   const photoHTML = restaurant.photoUrl
     ? `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-photo" onerror="this.style.display='none'">`
     : '<div class="no-photo">📷 画像なし</div>';
 
+  // 🆕 営業状況バッジ
+  let openStatusHTML = "";
+  if (restaurant.openingHours) {
+    if (restaurant.openingHours.isOpen === true) {
+      openStatusHTML = '<span class="open-status open">営業中</span>';
+    } else if (restaurant.openingHours.isOpen === false) {
+      openStatusHTML = '<span class="open-status closed">閉店中</span>';
+    } else {
+      openStatusHTML = '<span class="open-status unknown">不明</span>';
+    }
+
+    // 24時間営業または深夜営業のバッジ
+    if (restaurant.openingHours.is24Hours) {
+      openStatusHTML += '<span class="open-status open">24h</span>';
+    } else if (restaurant.openingHours.isLateNight) {
+      openStatusHTML += '<span class="open-status open">深夜</span>';
+    }
+  }
+
+  // 🆕 営業時間詳細
+  let hoursDetailHTML = "";
+  if (
+    restaurant.openingHours &&
+    restaurant.openingHours.weekdayTexts.length > 0
+  ) {
+    hoursDetailHTML = '<div class="opening-hours">';
+    hoursDetailHTML += "<strong>📅 営業時間:</strong><br>";
+    restaurant.openingHours.weekdayTexts.forEach((text) => {
+      hoursDetailHTML += `<div class="opening-hours-detail">${text}</div>`;
+    });
+    hoursDetailHTML += "</div>";
+  }
+
   card.innerHTML = `
     ${photoHTML}
     <div class="restaurant-info">
-      <h3>${restaurant.name}</h3>
+      <h3>${restaurant.name} ${openStatusHTML}</h3>
       <p>📍 ${restaurant.address}</p>
       <p>🚶 徒歩約${restaurant.travelTime}分 (${restaurant.distance}m)</p>
       <p>⭐ 評価: ${
@@ -420,6 +539,7 @@ function createRestaurantCard(restaurant, isHighlight = false) {
           ? `<a href="${restaurant.googleMapsUri}" target="_blank" class="map-link">📍 地図で見る</a>`
           : ""
       }
+
     </div>
   `;
 
