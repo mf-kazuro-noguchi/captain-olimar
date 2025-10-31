@@ -722,7 +722,7 @@ async function runCompanionRoulette() {
     adjustSlotDisplay(slotReel);
 
     updateCompanionStage(COMPANION_FINAL, {
-      statusText: `${COMPANION_FINAL.name}さんが割り込んで優勝！`,
+      statusText: `${COMPANION_FINAL.name}が割り込んで優勝！`,
       isFinal: true,
     });
 
