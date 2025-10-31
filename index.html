@@ -1,150 +1,429 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🍱 ランチルーレット</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h1>🍱 ランチルーレット</h1>
-      <div id="status">位置情報を取得中...</div>
-      <div id="restaurant-count"></div>
-
-      <!-- 同行者選択 -->
-      <div class="companion-section">
-        <label>
-          <input type="checkbox" id="companionCheckbox" />
-          👥 一緒に行く人も選定する
-        </label>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍽️ ランチルーレット</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #FF6B6B;
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 0.9em;
+    }
+    #status {
+      text-align: center;
+      padding: 15px;
+      background: #e3f2fd;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-size: 0.9em;
+    }
+    
+    /* フィルターエリア */
+    .filter-section {
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 15px;
+      margin: 25px 0;
+      border: 2px solid #e0e0e0;
+    }
+    .filter-group {
+      margin-bottom: 20px;
+    }
+    .filter-group:last-child {
+      margin-bottom: 0;
+    }
+    .filter-group label.group-title {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 12px;
+      font-size: 1.1em;
+    }
+    .filter-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .filter-option {
+      flex: 1;
+      min-width: 120px;
+    }
+    .filter-option input[type="radio"] {
+      display: none;
+    }
+    .filter-option label {
+      display: block;
+      padding: 12px 20px;
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.95em;
+    }
+    .filter-option input[type="radio"]:checked + label {
+      background: #FF6B6B;
+      color: white;
+      border-color: #FF6B6B;
+      font-weight: bold;
+    }
+    .filter-option label:hover {
+      border-color: #FF6B6B;
+      transform: translateY(-2px);
+    }
+    
+    /* ボタン */
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin: 25px 0;
+    }
+    button {
+      flex: 1;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: bold;
+    }
+    #searchBtn {
+      background: #4CAF50;
+      color: white;
+    }
+    #searchBtn:hover:not(:disabled) {
+      background: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+    }
+    #rouletteBtn {
+      background: #FF6B6B;
+      color: white;
+    }
+    #rouletteBtn:hover:not(:disabled) {
+      background: #ff5252;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    /* 結果カウント */
+    .result-count {
+      text-align: center;
+      font-size: 1.2em;
+      color: #333;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    
+    /* レストランカード */
+    .restaurant-card {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 2px solid #e0e0e0;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 12px;
+      background: #fafafa;
+      transition: all 0.3s;
+    }
+    .restaurant-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      border-color: #FF6B6B;
+    }
+    .restaurant-photo {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 8px 8px 0 0;
+      margin: -20px -20px 15px -20px;
+    }
+    .no-photo {
+      width: 100%;
+      height: 150px;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+      color: #999;
+      border-radius: 8px 8px 0 0;
+      margin: -20px -20px 15px -20px;
+    }
+    .restaurant-info {
+      flex: 1;
+    }
+    .restaurant-card h3 {
+      margin: 0 0 15px 0;
+      color: #FF6B6B;
+      font-size: 1.4em;
+    }
+    .restaurant-card p {
+      margin: 8px 0;
+      color: #666;
+      font-size: 0.95em;
+    }
+    /* 🆕 営業時間のバッジ */
+    .open-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .open-status.open {
+      background: #4CAF50;
+      color: white;
+    }
+    .open-status.closed {
+      background: #f44336;
+      color: white;
+    }
+    .open-status.unknown {
+      background: #999;
+      color: white;
+    }
+    .opening-hours {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-size: 0.85em;
+    }
+    .opening-hours-detail {
+      margin: 3px 0;
+    }
+    .map-link {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 0.9em;
+      transition: all 0.3s;
+    }
+    .map-link:hover {
+      background: #45a049;
+      transform: scale(1.05);
+    }
+    
+    /* 特別表示（ルーレット結果） */
+    .selected-restaurant {
+      border: 3px solid #FFD700;
+      background: linear-gradient(135deg, #FFF9E6 0%, #FFECB3 100%);
+      animation: highlight 0.5s ease;
+      box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+    }
+    @keyframes highlight {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .selected-restaurant h3 {
+      color: #FF6B6B;
+      font-size: 1.8em;
+    }
+    .selected-restaurant::before {
+      content: "🎉 今日のオススメ！ 🎉";
+      display: block;
+      text-align: center;
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #FF6B6B;
+      margin-bottom: 15px;
+    }
+    .selected-restaurant .restaurant-photo {
+      height: 300px;
+    }
+    .selected-restaurant .no-photo {
+      height: 200px;
+      font-size: 3em;
+    }
+    
+    .loading {
+      text-align: center;
+      color: #666;
+      font-size: 1.1em;
+      padding: 40px;
+    }
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    /* レスポンシブ */
+    @media (max-width: 600px) {
+      .filter-options {
+        flex-direction: column;
+      }
+      .filter-option {
+        min-width: 100%;
+      }
+      .button-group {
+        flex-direction: column;
+      }
+      .restaurant-photo {
+        height: 150px;
+      }
+      .selected-restaurant .restaurant-photo {
+        height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍱 ランチルーレット</h1>
+    <p class="subtitle">条件を選んで、今日のランチを決めよう！</p>
+    
+    <div id="status">位置情報を取得中...</div>
+    
+    <!-- フィルターセクション -->
+    <div class="filter-section">
+      <!-- 予算 -->
+      <div class="filter-group">
+        <label class="group-title">💰 予算</label>
+        <div class="filter-options">
+          <div class="filter-option">
+            <input type="radio" name="budget" id="budget-all" value="all" checked>
+            <label for="budget-all">指定なし</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="budget" id="budget-500" value="500">
+            <label for="budget-500">〜500円</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="budget" id="budget-1000" value="1000">
+            <label for="budget-1000">〜1000円</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="budget" id="budget-over" value="over">
+            <label for="budget-over">1000円〜</label>
+          </div>
+        </div>
       </div>
-
-      <!-- フィルター選択機能 -->
-      <div class="filters">
-        <div class="filter-group">
-          <h3>[ 予算を選ぶ ]</h3>
-          <label
-            ><input type="radio" name="budget" value="500円以下" />
-            500円以下</label
-          >
-          <label
-            ><input type="radio" name="budget" value="1000円以下" />
-            1000円以下</label
-          >
-          <label
-            ><input type="radio" name="budget" value="それ以上" />
-            それ以上</label
-          >
-        </div>
-
-        <div class="filter-group">
-          <h3>[ 気分を選ぶ ]</h3>
-          <label
-            ><input type="radio" name="mood" value="さっぱり" /> さっぱり</label
-          >
-          <label
-            ><input type="radio" name="mood" value="がっつり" /> がっつり</label
-          >
-          <label
-            ><input type="radio" name="mood" value="甘いもの" /> 甘いもの</label
-          >
-          <label
-            ><input type="radio" name="mood" value="おしゃれ" /> おしゃれ</label
-          >
-        </div>
-
-        <div class="filter-group">
-          <h3>[ 移動時間を選ぶ ]</h3>
-          <label
-            ><input type="radio" name="travelTime" value="5分以内" />
-            5分以内</label
-          >
-          <label
-            ><input type="radio" name="travelTime" value="10分以内" />
-            10分以内</label
-          >
-          <label
-            ><input type="radio" name="travelTime" value="15分以内" />
-            15分以内</label
-          >
-          <label
-            ><input type="radio" name="travelTime" value="20分以上" />
-            20分以上</label
-          >
+      
+      <!-- 気分 -->
+      <div class="filter-group">
+        <label class="group-title">😋 気分</label>
+        <div class="filter-options">
+          <div class="filter-option">
+            <input type="radio" name="mood" id="mood-all" value="all" checked>
+            <label for="mood-all">指定なし</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="mood" id="mood-light" value="light">
+            <label for="mood-light">さっぱり</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="mood" id="mood-heavy" value="heavy">
+            <label for="mood-heavy">がっつり</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="mood" id="mood-sweet" value="sweet">
+            <label for="mood-sweet">甘いもの</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="mood" id="mood-fancy" value="fancy">
+            <label for="mood-fancy">おしゃれ</label>
+          </div>
         </div>
       </div>
-
-      <div class="custom-section">
-        <h2>📝 カスタム店舗を登録</h2>
-        <form id="customRestaurantForm" class="custom-form">
-          <div class="custom-form-row">
-            <label for="customName">店名</label>
-            <input
-              type="text"
-              id="customName"
-              name="customName"
-              placeholder="例: カフェ・ナカノ"
-              required
-            />
+      
+      <!-- 移動時間 -->
+      <div class="filter-group">
+        <label class="group-title">🚶 移動時間</label>
+        <div class="filter-options">
+          <div class="filter-option">
+            <input type="radio" name="time" id="time-5" value="400">
+            <label for="time-5">5分以内</label>
           </div>
-          <div class="custom-form-row">
-            <label for="customGenre">ジャンル</label>
-            <input
-              type="text"
-              id="customGenre"
-              name="customGenre"
-              placeholder="例: カフェ"
-              required
-            />
+          <div class="filter-option">
+            <input type="radio" name="time" id="time-10" value="800" checked>
+            <label for="time-10">10分以内</label>
           </div>
-          <div class="custom-form-row">
-            <label for="customBudget">予算</label>
-            <select id="customBudget" name="customBudget" required>
-              <option value="" disabled selected>選択してください</option>
-              <option value="500円以下">500円以下</option>
-              <option value="1000円以下">1000円以下</option>
-              <option value="それ以上">それ以上</option>
-            </select>
+          <div class="filter-option">
+            <input type="radio" name="time" id="time-15" value="1200">
+            <label for="time-15">15分以内</label>
           </div>
-          <div class="custom-form-row">
-            <label for="customMood">気分</label>
-            <select id="customMood" name="customMood" required>
-              <option value="" disabled selected>選択してください</option>
-              <option value="さっぱり">さっぱり</option>
-              <option value="がっつり">がっつり</option>
-              <option value="甘いもの">甘いもの</option>
-              <option value="おしゃれ">おしゃれ</option>
-            </select>
+          <div class="filter-option">
+            <input type="radio" name="time" id="time-20" value="1600">
+            <label for="time-20">20分以内</label>
           </div>
-          <div class="custom-form-row">
-            <label for="customTravelTime">移動時間 (徒歩)</label>
-            <select id="customTravelTime" name="customTravelTime" required>
-              <option value="" disabled selected>選択してください</option>
-              <option value="5">5分以内</option>
-              <option value="10">10分以内</option>
-              <option value="15">15分以内</option>
-              <option value="20">20分以上</option>
-            </select>
-          </div>
-          <button type="submit" class="custom-form-submit">登録する</button>
-        </form>
-
-        <div class="custom-list">
-          <p id="customRestaurantEmptyMessage" class="custom-list-empty">
-            まだカスタム店舗は登録されていません。
-          </p>
-          <ul id="customRestaurantList" class="custom-restaurant-list"></ul>
         </div>
       </div>
-
-      <button id="rouletteBtn">🎲 回す!</button>
-
-      <div id="result"></div>
+      
+      <!-- 🆕 営業時間 -->
+      <div class="filter-group">
+        <label class="group-title">🕐 営業時間</label>
+        <div class="filter-options">
+          <div class="filter-option">
+            <input type="radio" name="hours" id="hours-all" value="all" checked>
+            <label for="hours-all">指定なし</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="hours" id="hours-open" value="open">
+            <label for="hours-open">今営業中</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="hours" id="hours-24h" value="24h">
+            <label for="hours-24h">24時間営業</label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="hours" id="hours-late" value="late">
+            <label for="hours-late">深夜営業</label>
+          </div>
+        </div>
+      </div>
     </div>
+    
+    <!-- ボタン -->
+    <div class="button-group">
+      <button id="searchBtn" style="display:none;">🔍 条件で検索</button>
+      <button id="rouletteBtn" style="display:none;">🎲 ルーレットで決める！</button>
+    </div>
+    
+    <div class="result-count" id="resultCount"></div>
+    <div id="result"></div>
+  </div>
 
-    <script src="config.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_API_KEY}&libraries=places"></script>
-    <script src="script.js"></script>
-  </body>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
 </html>
