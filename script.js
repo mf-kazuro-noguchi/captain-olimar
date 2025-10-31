@@ -31,11 +31,7 @@ async function init() {
       lng: position.coords.longitude,
     };
 
-    document.getElementById(
-      "status"
-    ).textContent = `📍 現在地: ${userLocation.lat.toFixed(
-      4
-    )}, ${userLocation.lng.toFixed(4)}`;
+    document.getElementById("status").textContent = "📍 現在地: 中野坂上駅";
 
     // 店舗検索
     await fetchNearbyRestaurants(800); // Initial search radius of 800m
@@ -240,11 +236,7 @@ function handleLocationError(error) {
   document.getElementById("status").textContent = "❌ " + message;
   // フォールバック: デフォルト位置(例: 東京駅)を使用
   userLocation = { lat: 35.6943, lng: 139.676 }; // 中野坂上駅
-  document.getElementById(
-    "status"
-  ).textContent = `📍 現在地: (固定)中野坂上駅 ${userLocation.lat.toFixed(
-    4
-  )}, ${userLocation.lng.toFixed(4)}`;
+  document.getElementById("status").textContent = "📍 現在地: 中野坂上駅";
   fetchNearbyRestaurants(800); // デフォルト位置で再検索
 }
 
@@ -343,7 +335,7 @@ document.getElementById("rouletteBtn").addEventListener("click", () => {
   document.getElementById("result").innerHTML = resultHTML;
 
   if (withCompanion) {
-    runCompanionRoulette();
+    runCompanionRoulette(CONFIG.FUKUMURO_EMAIL);
   }
 
   // Outlookボタンのイベント
@@ -359,7 +351,7 @@ document.getElementById("rouletteBtn").addEventListener("click", () => {
   });
 });
 
-function runCompanionRoulette() {
+function runCompanionRoulette(emailAddress) {
   const rouletteElement = document.getElementById("companionRouletteText");
   if (!rouletteElement) return;
 
@@ -397,7 +389,44 @@ function runCompanionRoulette() {
     rouletteElement.classList.remove("is-rolling");
     rouletteElement.textContent = "♿ 同行者: 福室さん";
     companionRouletteTimeout = null;
+    notifyCompanionByEmail(emailAddress);
   }, 2200);
+}
+
+function notifyCompanionByEmail(emailAddress) {
+  if (!emailAddress) {
+    console.warn(
+      "メールアドレスが設定されていないため、通知をスキップします。"
+    );
+    return;
+  }
+
+  fetch("/send-email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: emailAddress,
+      subject: "ランチのお誘い",
+      message: "飯いくぞ！",
+    }),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("メール送信に失敗しました");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (!data.ok) {
+        throw new Error(data.error || "メール送信に失敗しました");
+      }
+      console.log("同行者にメールを送信しました。");
+    })
+    .catch((error) => {
+      console.error("メール送信エラー:", error);
+    });
 }
 
 // .icsファイル生成・ダウンロード

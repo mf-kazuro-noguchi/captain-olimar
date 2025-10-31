@@ -1,58 +1,87 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🍱 ランチルーレット</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="container">
-    <h1>🍱 ランチルーレット</h1>
-    <div id="status">位置情報を取得中...</div>
-    <div id="restaurant-count"></div>
-    
-    <!-- 同行者選択 -->
-    <div class="companion-section">
-      <label>
-        <input type="checkbox" id="companionCheckbox">
-        👥 福室さんと一緒に行く
-      </label>
-    </div>
-    
-    <!-- フィルター選択機能 -->
-    <div class="filters">
-      <div class="filter-group">
-        <h3>[ 予算を選ぶ ]</h3>
-        <label><input type="radio" name="budget" value="500円以下"> 500円以下</label>
-        <label><input type="radio" name="budget" value="1000円以下"> 1000円以下</label>
-        <label><input type="radio" name="budget" value="それ以上"> それ以上</label>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🍱 ランチルーレット</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🍱 ランチルーレット</h1>
+      <div id="status">位置情報を取得中...</div>
+      <div id="restaurant-count"></div>
+
+      <!-- 同行者選択 -->
+      <div class="companion-section">
+        <label>
+          <input type="checkbox" id="companionCheckbox" />
+          👥 一緒に行く人も選定する
+        </label>
       </div>
-      
-      <div class="filter-group">
-        <h3>[ 気分を選ぶ ]</h3>
-        <label><input type="radio" name="mood" value="さっぱり"> さっぱり</label>
-        <label><input type="radio" name="mood" value="がっつり"> がっつり</label>
-        <label><input type="radio" name="mood" value="甘いもの"> 甘いもの</label>
-        <label><input type="radio" name="mood" value="おしゃれ"> おしゃれ</label>
+
+      <!-- フィルター選択機能 -->
+      <div class="filters">
+        <div class="filter-group">
+          <h3>[ 予算を選ぶ ]</h3>
+          <label
+            ><input type="radio" name="budget" value="500円以下" />
+            500円以下</label
+          >
+          <label
+            ><input type="radio" name="budget" value="1000円以下" />
+            1000円以下</label
+          >
+          <label
+            ><input type="radio" name="budget" value="それ以上" />
+            それ以上</label
+          >
+        </div>
+
+        <div class="filter-group">
+          <h3>[ 気分を選ぶ ]</h3>
+          <label
+            ><input type="radio" name="mood" value="さっぱり" /> さっぱり</label
+          >
+          <label
+            ><input type="radio" name="mood" value="がっつり" /> がっつり</label
+          >
+          <label
+            ><input type="radio" name="mood" value="甘いもの" /> 甘いもの</label
+          >
+          <label
+            ><input type="radio" name="mood" value="おしゃれ" /> おしゃれ</label
+          >
+        </div>
+
+        <div class="filter-group">
+          <h3>[ 移動時間を選ぶ ]</h3>
+          <label
+            ><input type="radio" name="travelTime" value="5分以内" />
+            5分以内</label
+          >
+          <label
+            ><input type="radio" name="travelTime" value="10分以内" />
+            10分以内</label
+          >
+          <label
+            ><input type="radio" name="travelTime" value="15分以内" />
+            15分以内</label
+          >
+          <label
+            ><input type="radio" name="travelTime" value="20分以上" />
+            20分以上</label
+          >
+        </div>
       </div>
-      
-      <div class="filter-group">
-        <h3>[ 移動時間を選ぶ ]</h3>
-        <label><input type="radio" name="travelTime" value="5分以内"> 5分以内</label>
-        <label><input type="radio" name="travelTime" value="10分以内"> 10分以内</label>
-        <label><input type="radio" name="travelTime" value="15分以内"> 15分以内</label>
-        <label><input type="radio" name="travelTime" value="20分以上"> 20分以上</label>
-      </div>
+
+      <button id="rouletteBtn">🎲 回す!</button>
+
+      <div id="result"></div>
     </div>
 
-    <button id="rouletteBtn">🎲 回す!</button>
-    
-    <div id="result"></div>
-  </div>
-  
-  <script src="config.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_API_KEY}&libraries=places"></script>
-  <script src="script.js"></script>
-</body>
+    <script src="config.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_API_KEY}&libraries=places"></script>
+    <script src="script.js"></script>
+  </body>
 </html>
