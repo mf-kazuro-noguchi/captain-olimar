@@ -184,8 +184,10 @@ function handleLocationError(error) {
   
   document.getElementById('status').textContent = '❌ ' + message;
   // フォールバック: デフォルト位置(例: 東京駅)を使用
-  // userLocation = { lat: 35.6812, lng: 139.7671 }; // 東京駅
-  // fetchNearbyRestaurants(800); // デフォルト位置で再検索
+  userLocation = { lat: 35.6943, lng: 139.6760 }; // 中野坂上駅
+  document.getElementById('status').textContent = 
+    `📍 現在地: (固定)中野坂上駅 ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`;
+  fetchNearbyRestaurants(800); // デフォルト位置で再検索
 }
 
 // フィルタリングロジック
