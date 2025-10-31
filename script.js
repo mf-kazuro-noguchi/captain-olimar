@@ -1,27 +1,26 @@
 let userLocation = null;
 let allRestaurants = [];
 let filteredRestaurants = [];
-let selectedCompanion = null; // 🆕 選ばれた同行者
+let selectedCompanion = null;
 
-// 🆕 同行者リスト
+// 🆕 同行者リスト（画像パス追加）
 const COMPANION_POOL = [
-  { name: "福室さん", country: "JPN" },
-  { name: "興津さん", country: "JPN" },
-  { name: "森さん", country: "JPN" },
-  { name: "田中さん", country: "JPN" },
-  { name: "佐藤さん", country: "JPN" },
-  { name: "鈴木さん", country: "JPN" },
-  { name: "高橋さん", country: "JPN" },
-  { name: "山本さん", country: "JPN" },
-  { name: "中村さん", country: "JPN" },
-  { name: "小林さん", country: "JPN" },
-  { name: "渡辺さん", country: "JPN" },
+  { name: "福室さん", country: "JPN", image: "images/fukumuro.jpg" },
+  { name: "興津さん", country: "JPN", image: "images/okitsu.jpg" },
+  { name: "森さん", country: "JPN", image: "images/mori.jpg" },
+  { name: "田中さん", country: "JPN", image: "images/tanaka.jpg" },
+  { name: "佐藤さん", country: "JPN", image: "images/sato.jpg" },
+  { name: "鈴木さん", country: "JPN", image: "images/suzuki.jpg" },
+  { name: "高橋さん", country: "JPN", image: "images/takahashi.jpg" },
+  { name: "山本さん", country: "JPN", image: "images/yamamoto.jpg" },
+  { name: "中村さん", country: "JPN", image: "images/nakamura.jpg" },
+  { name: "小林さん", country: "JPN", image: "images/kobayashi.jpg" },
+  { name: "渡辺さん", country: "JPN", image: "images/watanabe.jpg" },
 ];
 
 const COMPANION_FINAL = COMPANION_POOL[0]; // 必ず福室さんが選ばれる
 let companionAnimationInterval = null;
 let companionAnimationTimeout = null;
-
 // DOMが完全に読み込まれてから実行
 document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('searchBtn');
@@ -439,90 +438,92 @@ function shuffleCompanions(list) {
   return array;
 }
 
-// 🆕 同行者ルーレット実行（柔道風演出）
+// 🎰 同行者スロット演出（全員表示版）
 function runCompanionRoulette() {
   return new Promise((resolve) => {
-    const container = document.getElementById('companionRoulette');
-    const nameEl = document.getElementById('companionNameDisplay');
-    const countryEl = document.getElementById('companionCountryDisplay');
-    const statusEl = document.getElementById('companionStatusText');
-    const wazaEl = document.getElementById('companionScoreWaza');
-    const ipponEl = document.getElementById('companionScoreIppon');
-    const lightEl = document.getElementById('companionIpponLight');
+    // スロットマシン要素を動的に作成
+    const slotMachine = document.createElement('div');
+    slotMachine.className = 'companion-slot-machine';
+    slotMachine.innerHTML = `
+      <div class="companion-slot-container">
+        <div class="companion-slot-title">🥋 一緒に行く人は...</div>
+        <div class="companion-slot-display">
+          <div class="companion-slot-reel" id="companionSlotReel">
+            <div class="companion-slot-item">
+              <div class="companion-slot-name">???</div>
+            </div>
+          </div>
+        </div>
+        <div class="companion-slot-arrows">
+          <div class="companion-arrow-left">◀</div>
+          <div class="companion-arrow-right">▶</div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(slotMachine);
+    document.body.classList.add('slot-active');
 
-    if (!container || !nameEl || !countryEl || !statusEl) {
-      selectedCompanion = COMPANION_FINAL;
-      resolve(COMPANION_FINAL);
-      return;
+    const slotReel = document.getElementById('companionSlotReel');
+
+    // 🆕 スロットに表示する同行者リストを作成（全員を3周表示）
+    const slotItems = [];
+    
+    // 全員を3回繰り返し表示
+    for (let round = 0; round < 3; round++) {
+      // 福室さん以外をシャッフルして追加
+      const shuffled = shuffleCompanions(COMPANION_POOL.filter(c => c.name !== COMPANION_FINAL.name));
+      slotItems.push(...shuffled);
+      
+      // 各ラウンドの途中に福室さんも表示（最後以外）
+      if (round < 2) {
+        slotItems.push(COMPANION_FINAL);
+      }
     }
+    
+    // 🆕 最後に必ず福室さんで止まる
+    slotItems.push(COMPANION_FINAL);
 
-    resetCompanionAnimation(false);
+    console.log(`🎰 スロット表示数: ${slotItems.length}人`, slotItems.map(c => c.name));
 
-    container.classList.add('is-visible');
-    container.classList.add('is-animating');
-    container.setAttribute('aria-hidden', 'false');
-    statusEl.textContent = '試合開始！選手紹介中...';
+    // リールに同行者を表示
+    slotReel.innerHTML = slotItems.map(companion => `
+      <div class="companion-slot-item">
+        <img src="${companion.image}" alt="${companion.name}" class="companion-slot-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22%23999%22%3E👤%3C/text%3E%3C/svg%3E'">
+        <div class="companion-slot-name">${companion.name}</div>
+      </div>
+    `).join('');
 
-    const candidatePool = shuffleCompanions(
-      COMPANION_POOL.filter(
-        (companion) => companion.name !== COMPANION_FINAL.name
-      )
-    );
-
-    if (candidatePool.length === 0) {
-      candidatePool.push(COMPANION_FINAL);
-    }
-
-    let index = 0;
-
-    companionAnimationInterval = setInterval(() => {
-      const candidate = candidatePool[index % candidatePool.length];
-      nameEl.textContent = candidate.name;
-      countryEl.textContent = candidate.country;
-      statusEl.textContent = `畳の上で ${candidate.name} 選手がアップ中...`;
-      if (wazaEl) {
-        if (index % 2 === 0) {
-          wazaEl.classList.add('is-active');
-        } else {
-          wazaEl.classList.remove('is-active');
-        }
-      }
-      if (ipponEl) {
-        ipponEl.classList.remove('is-active');
-      }
-      index += 1;
-    }, 160);
-
-    const animationDuration = Math.max(2400, candidatePool.length * 240);
-
-    companionAnimationTimeout = setTimeout(() => {
-      if (companionAnimationInterval) {
-        clearInterval(companionAnimationInterval);
-        companionAnimationInterval = null;
-      }
-
-      nameEl.textContent = COMPANION_FINAL.name;
-      countryEl.textContent = COMPANION_FINAL.country;
-      statusEl.textContent = '一本！福室さんとのランチが決まりました！';
-      container.classList.remove('is-animating');
-      container.classList.add('is-complete');
-      if (wazaEl) {
-        wazaEl.classList.remove('is-active');
-      }
-      if (ipponEl) {
-        ipponEl.classList.add('is-active');
-      }
-      if (lightEl) {
-        lightEl.classList.add('is-glowing');
-      }
-
-      selectedCompanion = COMPANION_FINAL;
-
-      companionAnimationTimeout = setTimeout(() => {
-        companionAnimationTimeout = null;
-        resolve(COMPANION_FINAL);
-      }, 600);
-    }, animationDuration);
+    // 高速スピン（4秒間）
+    setTimeout(() => {
+      // 減速開始
+      slotReel.classList.add('slowing');
+      
+      // さらに2秒後に停止
+      setTimeout(() => {
+        slotReel.classList.remove('slowing');
+        slotReel.classList.add('stopped');
+        
+        // 最終結果（福室さん）を中央に表示
+        slotReel.innerHTML = `
+          <div class="companion-slot-item final">
+            <img src="${COMPANION_FINAL.image}" alt="${COMPANION_FINAL.name}" class="companion-slot-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2224%22 fill=%22%23999%22%3E👤%3C/text%3E%3C/svg%3E'">
+            <div class="companion-slot-name">${COMPANION_FINAL.name} 🥇</div>
+          </div>
+        `;
+        slotReel.style.transform = 'translateY(0)';
+        
+        selectedCompanion = COMPANION_FINAL;
+        
+        // 2.5秒後にスロットを閉じる
+        setTimeout(() => {
+          document.body.removeChild(slotMachine);
+          document.body.classList.remove('slot-active');
+          slotReel.classList.remove('stopped');
+          resolve(COMPANION_FINAL);
+        }, 2500);
+      }, 2000);
+    }, 4000);
   });
 }
 
