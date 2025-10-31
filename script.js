@@ -466,19 +466,14 @@ function runCompanionRoulette() {
 
     const slotReel = document.getElementById('companionSlotReel');
 
-    // 🆕 スロットに表示する同行者リストを作成（全員を3周表示）
+    // 🆕 スロットに表示する同行者リストを作成（全員を5周表示）
     const slotItems = [];
     
-    // 全員を3回繰り返し表示
-    for (let round = 0; round < 3; round++) {
-      // 福室さん以外をシャッフルして追加
-      const shuffled = shuffleCompanions(COMPANION_POOL.filter(c => c.name !== COMPANION_FINAL.name));
+    // 全員を5回繰り返し表示してドキドキ感アップ
+    for (let round = 0; round < 5; round++) {
+      // 全員をシャッフルして追加
+      const shuffled = shuffleCompanions(COMPANION_POOL);
       slotItems.push(...shuffled);
-      
-      // 各ラウンドの途中に福室さんも表示（最後以外）
-      if (round < 2) {
-        slotItems.push(COMPANION_FINAL);
-      }
     }
     
     // 🆕 最後に必ず福室さんで止まる
@@ -494,12 +489,12 @@ function runCompanionRoulette() {
       </div>
     `).join('');
 
-    // 高速スピン（4秒間）
+    // 高速スピン（7秒間でドキドキ感アップ！）
     setTimeout(() => {
       // 減速開始
       slotReel.classList.add('slowing');
       
-      // さらに2秒後に停止
+      // さらに4秒後に停止（じっくり見せる）
       setTimeout(() => {
         slotReel.classList.remove('slowing');
         slotReel.classList.add('stopped');
@@ -515,15 +510,15 @@ function runCompanionRoulette() {
         
         selectedCompanion = COMPANION_FINAL;
         
-        // 2.5秒後にスロットを閉じる
+        // 3秒後にスロットを閉じる（結果をじっくり見せる）
         setTimeout(() => {
           document.body.removeChild(slotMachine);
           document.body.classList.remove('slot-active');
           slotReel.classList.remove('stopped');
           resolve(COMPANION_FINAL);
-        }, 2500);
-      }, 2000);
-    }, 4000);
+        }, 3000);
+      }, 4000);
+    }, 7000);
   });
 }
 
