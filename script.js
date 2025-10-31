@@ -9,13 +9,13 @@ const COMPANION_POOL = [
   { name: "興津さん", country: "JPN", image: "images/okitsu.jpg" },
   { name: "森さん", country: "JPN", image: "images/mori.jpg" },
   { name: "木村さん", country: "JPN", image: "images/kimura.jpg" },
-  { name: "佐藤さん", country: "JPN", image: "images/sato.jpg" },
-  { name: "鈴木さん", country: "JPN", image: "images/suzuki.jpg" },
-  { name: "高橋さん", country: "JPN", image: "images/takahashi.jpg" },
-  { name: "山本さん", country: "JPN", image: "images/yamamoto.jpg" },
-  { name: "中村さん", country: "JPN", image: "images/nakamura.jpg" },
-  { name: "小林さん", country: "JPN", image: "images/kobayashi.jpg" },
-  { name: "渡辺さん", country: "JPN", image: "images/watanabe.jpg" },
+  { name: "横澤さん", country: "JPN", image: "images/yokozawa.jpg" },
+  { name: "マイケルジャクソン", country: "JPN", image: "images/maikeru.jpg" },
+  { name: "ドウェインジョンソン", country: "JPN", image: "images/jonson.jpg" },
+  { name: "橋本環奈", country: "JPN", image: "images/hashimoto.jpg" },
+  { name: "広瀬すず", country: "JPN", image: "images/hirose.jpg" },
+  { name: "金正恩", country: "JPN", image: "images/kim.jpg" },
+  { name: "深田恭子", country: "JPN", image: "images/fukada.jpg" },
 ];
 
 const COMPANION_FINAL = COMPANION_POOL[0]; // 必ず福室さんが選ばれる
