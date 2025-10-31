@@ -1,11 +1,32 @@
 let userLocation = null;
 let allRestaurants = [];
 let filteredRestaurants = [];
+let selectedCompanion = null; // 🆕 選ばれた同行者
+
+// 🆕 同行者リスト
+const COMPANION_POOL = [
+  { name: "福室さん", country: "JPN" },
+  { name: "興津さん", country: "JPN" },
+  { name: "森さん", country: "JPN" },
+  { name: "田中さん", country: "JPN" },
+  { name: "佐藤さん", country: "JPN" },
+  { name: "鈴木さん", country: "JPN" },
+  { name: "高橋さん", country: "JPN" },
+  { name: "山本さん", country: "JPN" },
+  { name: "中村さん", country: "JPN" },
+  { name: "小林さん", country: "JPN" },
+  { name: "渡辺さん", country: "JPN" },
+];
+
+const COMPANION_FINAL = COMPANION_POOL[0]; // 必ず福室さんが選ばれる
+let companionAnimationInterval = null;
+let companionAnimationTimeout = null;
 
 // DOMが完全に読み込まれてから実行
 document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('searchBtn');
   const rouletteBtn = document.getElementById('rouletteBtn');
+  const companionToggle = document.getElementById('companionCheckbox'); // 🆕
   
   if (searchBtn) {
     searchBtn.addEventListener('click', applyFiltersAndDisplay);
@@ -13,6 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (rouletteBtn) {
     rouletteBtn.addEventListener('click', executeRoulette);
+  }
+  
+  // 🆕 同行者チェックボックスのイベントリスナー
+  if (companionToggle) {
+    const updateCompanionVisibility = () => {
+      setCompanionVisibility(companionToggle.checked);
+    };
+    companionToggle.addEventListener('change', updateCompanionVisibility);
+    updateCompanionVisibility();
+  } else {
+    setCompanionVisibility(false);
   }
   
   // 移動時間が変更されたらAPI再呼び出し
@@ -95,7 +127,7 @@ async function searchNearbyRestaurants() {
   const selectedTime = document.querySelector('input[name="time"]:checked');
   const radius = selectedTime ? parseFloat(selectedTime.value) : 800;
 
-  toggleButtons(false);
+  toggleButtons(false, 'search');
 
   try {
     if (typeof CONFIG === 'undefined' || !CONFIG.GOOGLE_API_KEY) {
@@ -154,7 +186,7 @@ async function searchNearbyRestaurants() {
     console.error('Error:', error);
     showError('検索中にエラーが発生しました: ' + error.message);
   } finally {
-    toggleButtons(true);
+    toggleButtons(true, 'search');
   }
 }
 
@@ -167,14 +199,12 @@ function formatRestaurantData(place) {
     place.location.longitude
   );
   
-  // 写真URLを生成
   let photoUrl = null;
   if (place.photos && place.photos.length > 0) {
     const photoName = place.photos[0].name;
     photoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${CONFIG.GOOGLE_API_KEY}&maxHeightPx=400&maxWidthPx=600`;
   }
   
-  // 営業時間情報を整形
   const openingHoursData = parseOpeningHours(place.currentOpeningHours, place.regularOpeningHours);
   
   return {
@@ -204,14 +234,11 @@ function parseOpeningHours(currentHours, regularHours) {
     weekdayTexts: []
   };
   
-  // 現在営業中かどうか
   if (currentHours && currentHours.openNow !== undefined) {
     result.isOpen = currentHours.openNow;
   }
   
-  // 営業時間の詳細
   if (regularHours) {
-    // 24時間営業の判定
     if (regularHours.periods && regularHours.periods.length === 1) {
       const period = regularHours.periods[0];
       if (period.open && !period.close) {
@@ -219,13 +246,11 @@ function parseOpeningHours(currentHours, regularHours) {
       }
     }
     
-    // 深夜営業の判定（23時以降も営業）
     if (regularHours.periods) {
       result.isLateNight = regularHours.periods.some(period => {
         if (period.close && period.close.hour >= 23) {
           return true;
         }
-        // 翌日の早朝まで営業（例：2時まで）
         if (period.close && period.close.day !== period.open?.day) {
           return true;
         }
@@ -233,7 +258,6 @@ function parseOpeningHours(currentHours, regularHours) {
       });
     }
     
-    // 曜日別営業時間テキスト
     if (regularHours.weekdayDescriptions) {
       result.weekdayTexts = regularHours.weekdayDescriptions;
     }
@@ -269,21 +293,18 @@ function applyFiltersAndDisplay() {
   const hours = document.querySelector('input[name="hours"]:checked')?.value;
   
   filteredRestaurants = allRestaurants.filter(restaurant => {
-    // 予算フィルター
     if (budget !== 'all') {
       if (!filterByBudget(restaurant.priceLevel, budget)) {
         return false;
       }
     }
     
-    // 気分フィルター
     if (mood !== 'all') {
       if (!restaurant.mood.includes(mood)) {
         return false;
       }
     }
     
-    // 営業時間フィルター
     if (hours !== 'all') {
       if (!filterByOpeningHours(restaurant.openingHours, hours)) {
         return false;
@@ -336,19 +357,207 @@ function filterByOpeningHours(openingHours, hoursFilter) {
   return true;
 }
 
-// ルーレット実行
-function executeRoulette() {
+// 🆕 同行者の表示/非表示を切り替え
+function setCompanionVisibility(isVisible) {
+  const container = document.getElementById('companionRoulette');
+  if (!container) {
+    return;
+  }
+
+  container.setAttribute('aria-hidden', String(!isVisible));
+
+  if (isVisible) {
+    container.classList.add('is-visible');
+    selectedCompanion = null;
+    resetCompanionAnimation(true);
+  } else {
+    container.classList.remove('is-visible');
+    container.classList.remove('is-animating');
+    container.classList.remove('is-complete');
+    selectedCompanion = null;
+    resetCompanionAnimation(true);
+  }
+}
+
+// 🆕 同行者アニメーションをリセット
+function resetCompanionAnimation(clearDisplay = false) {
+  if (companionAnimationInterval) {
+    clearInterval(companionAnimationInterval);
+    companionAnimationInterval = null;
+  }
+
+  if (companionAnimationTimeout) {
+    clearTimeout(companionAnimationTimeout);
+    companionAnimationTimeout = null;
+  }
+
+  const container = document.getElementById('companionRoulette');
+  const nameEl = document.getElementById('companionNameDisplay');
+  const countryEl = document.getElementById('companionCountryDisplay');
+  const statusEl = document.getElementById('companionStatusText');
+  const lightEl = document.getElementById('companionIpponLight');
+  const wazaEl = document.getElementById('companionScoreWaza');
+  const ipponEl = document.getElementById('companionScoreIppon');
+
+  if (container) {
+    container.classList.remove('is-animating');
+    container.classList.remove('is-complete');
+  }
+
+  if (lightEl) {
+    lightEl.classList.remove('is-glowing');
+  }
+
+  if (wazaEl) {
+    wazaEl.classList.remove('is-active');
+  }
+
+  if (ipponEl) {
+    ipponEl.classList.remove('is-active');
+  }
+
+  if (clearDisplay) {
+    if (nameEl) {
+      nameEl.textContent = '選手未決定';
+    }
+    if (countryEl) {
+      countryEl.textContent = '---';
+    }
+    if (statusEl) {
+      statusEl.textContent = '畳の上で選手がウォームアップ中...';
+    }
+  }
+}
+
+// 🆕 同行者リストをシャッフル
+function shuffleCompanions(list) {
+  const array = list.slice();
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// 🆕 同行者ルーレット実行（柔道風演出）
+function runCompanionRoulette() {
+  return new Promise((resolve) => {
+    const container = document.getElementById('companionRoulette');
+    const nameEl = document.getElementById('companionNameDisplay');
+    const countryEl = document.getElementById('companionCountryDisplay');
+    const statusEl = document.getElementById('companionStatusText');
+    const wazaEl = document.getElementById('companionScoreWaza');
+    const ipponEl = document.getElementById('companionScoreIppon');
+    const lightEl = document.getElementById('companionIpponLight');
+
+    if (!container || !nameEl || !countryEl || !statusEl) {
+      selectedCompanion = COMPANION_FINAL;
+      resolve(COMPANION_FINAL);
+      return;
+    }
+
+    resetCompanionAnimation(false);
+
+    container.classList.add('is-visible');
+    container.classList.add('is-animating');
+    container.setAttribute('aria-hidden', 'false');
+    statusEl.textContent = '試合開始！選手紹介中...';
+
+    const candidatePool = shuffleCompanions(
+      COMPANION_POOL.filter(
+        (companion) => companion.name !== COMPANION_FINAL.name
+      )
+    );
+
+    if (candidatePool.length === 0) {
+      candidatePool.push(COMPANION_FINAL);
+    }
+
+    let index = 0;
+
+    companionAnimationInterval = setInterval(() => {
+      const candidate = candidatePool[index % candidatePool.length];
+      nameEl.textContent = candidate.name;
+      countryEl.textContent = candidate.country;
+      statusEl.textContent = `畳の上で ${candidate.name} 選手がアップ中...`;
+      if (wazaEl) {
+        if (index % 2 === 0) {
+          wazaEl.classList.add('is-active');
+        } else {
+          wazaEl.classList.remove('is-active');
+        }
+      }
+      if (ipponEl) {
+        ipponEl.classList.remove('is-active');
+      }
+      index += 1;
+    }, 160);
+
+    const animationDuration = Math.max(2400, candidatePool.length * 240);
+
+    companionAnimationTimeout = setTimeout(() => {
+      if (companionAnimationInterval) {
+        clearInterval(companionAnimationInterval);
+        companionAnimationInterval = null;
+      }
+
+      nameEl.textContent = COMPANION_FINAL.name;
+      countryEl.textContent = COMPANION_FINAL.country;
+      statusEl.textContent = '一本！福室さんとのランチが決まりました！';
+      container.classList.remove('is-animating');
+      container.classList.add('is-complete');
+      if (wazaEl) {
+        wazaEl.classList.remove('is-active');
+      }
+      if (ipponEl) {
+        ipponEl.classList.add('is-active');
+      }
+      if (lightEl) {
+        lightEl.classList.add('is-glowing');
+      }
+
+      selectedCompanion = COMPANION_FINAL;
+
+      companionAnimationTimeout = setTimeout(() => {
+        companionAnimationTimeout = null;
+        resolve(COMPANION_FINAL);
+      }, 600);
+    }, animationDuration);
+  });
+}
+
+// ルーレット実行（同行者ルーレット統合版）
+async function executeRoulette() {
   if (filteredRestaurants.length === 0) {
     alert('条件に合う店舗がありません。条件を変更してください。');
     return;
   }
-  
-  const randomIndex = Math.floor(Math.random() * filteredRestaurants.length);
-  const selected = filteredRestaurants[randomIndex];
-  
-  displayResults([selected], true);
-  
-  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  toggleButtons(false, 'roulette');
+
+  try {
+    // 🆕 同行者チェックボックスの確認
+    const companionToggle = document.getElementById('companionCheckbox');
+    if (companionToggle && companionToggle.checked) {
+      await runCompanionRoulette();
+    } else {
+      selectedCompanion = null;
+      resetCompanionAnimation(true);
+    }
+
+    // 店舗を選択
+    const randomIndex = Math.floor(Math.random() * filteredRestaurants.length);
+    const selected = filteredRestaurants[randomIndex];
+
+    displayResults([selected], true);
+
+    const resultElement = document.getElementById('result');
+    if (resultElement) {
+      resultElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } finally {
+    toggleButtons(true, 'roulette');
+  }
 }
 
 // 結果を表示
@@ -374,7 +583,6 @@ function createRestaurantCard(restaurant, isHighlight = false) {
   const card = document.createElement('div');
   card.className = isHighlight ? 'restaurant-card selected-restaurant' : 'restaurant-card';
   
-  // 価格レベルから具体的な価格帯を推定
   let priceDisplay = '不明';
   let priceRangeDisplay = '';
   
@@ -383,12 +591,10 @@ function createRestaurantCard(restaurant, isHighlight = false) {
     priceRangeDisplay = priceInfo.range;
   }
   
-  // 画像
   const photoHTML = restaurant.photoUrl 
     ? `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-photo" onerror="this.style.display='none'">` 
     : '<div class="no-photo">📷 画像なし</div>';
   
-  // 営業状況バッジ
   let openStatusHTML = '';
   if (restaurant.openingHours) {
     if (restaurant.openingHours.isOpen === true) {
@@ -406,7 +612,6 @@ function createRestaurantCard(restaurant, isHighlight = false) {
     }
   }
   
-  // 営業時間詳細
   let hoursDetailHTML = '';
   if (restaurant.openingHours && restaurant.openingHours.weekdayTexts.length > 0) {
     hoursDetailHTML = '<div class="opening-hours">';
@@ -426,6 +631,7 @@ function createRestaurantCard(restaurant, isHighlight = false) {
       <p>⭐ 評価: ${restaurant.rating ? restaurant.rating.toFixed(1) + ' / 5.0' : '不明'}</p>
       <p>💰 価格帯: ${priceRangeDisplay ? `<span class="price-range">(${priceRangeDisplay})</span>` : ''}</p>
       ${hoursDetailHTML}
+      ${isHighlight && selectedCompanion ? `<p class="companion-result-line">🤝 同行者: ${selectedCompanion.name}</p>` : ''}
       ${restaurant.googleMapsUri ? 
         `<a href="${restaurant.googleMapsUri}" target="_blank" class="map-link">📍 地図で見る</a>` : 
         ''}
@@ -477,18 +683,26 @@ function updateResultCount() {
   }
 }
 
-// ボタンの有効/無効を切り替え
-function toggleButtons(enabled) {
+// ボタンの有効/無効を切り替え（context引数追加）
+function toggleButtons(enabled, context = 'all') {
   const searchBtn = document.getElementById('searchBtn');
   const rouletteBtn = document.getElementById('rouletteBtn');
-  
-  if (searchBtn) {
+
+  if (searchBtn && (context === 'all' || context === 'search')) {
     searchBtn.disabled = !enabled;
     searchBtn.textContent = enabled ? '🔍 条件で検索' : '検索中...';
   }
-  
+
   if (rouletteBtn) {
-    rouletteBtn.disabled = !enabled;
+    if (context === 'search') {
+      rouletteBtn.disabled = !enabled;
+      if (enabled) {
+        rouletteBtn.textContent = '🎲 ルーレットで決める！';
+      }
+    } else {
+      rouletteBtn.disabled = !enabled;
+      rouletteBtn.textContent = enabled ? '🎲 ルーレットで決める！' : '演出中...';
+    }
   }
 }
 

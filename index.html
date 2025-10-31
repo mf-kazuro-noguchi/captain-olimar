@@ -14,10 +14,10 @@
       min-height: 100vh;
     }
     .price-range {
-  color: #4CAF50;
-  font-weight: bold;
-  font-size: 0.95em;
-}
+      color: #4CAF50;
+      font-weight: bold;
+      font-size: 0.95em;
+    }
     .container {
       background: white;
       padding: 40px;
@@ -43,6 +43,178 @@
       border-radius: 10px;
       margin: 20px 0;
       font-size: 0.9em;
+    }
+
+    /* 🆕 同行者チェックボックス */
+    .companion-toggle {
+      text-align: center;
+      margin: 18px 0 12px;
+    }
+    .companion-toggle label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 2px solid #ff6b6b;
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      font-weight: 600;
+      color: #ff6b6b;
+      transition: all 0.3s ease;
+    }
+    .companion-toggle label:hover {
+      box-shadow: 0 6px 18px rgba(255, 107, 107, 0.35);
+      transform: translateY(-2px);
+    }
+    .companion-toggle input {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ff6b6b;
+      border-radius: 6px;
+      position: relative;
+      cursor: pointer;
+    }
+    .companion-toggle input:checked {
+      background: #ff6b6b;
+    }
+    .companion-toggle input:checked::after {
+      content: "✔";
+      position: absolute;
+      color: #fff;
+      font-size: 14px;
+      top: 0;
+      left: 3px;
+    }
+
+    /* 🆕 同行者ルーレット表示エリア */
+    .companion-roulette {
+      display: none;
+      margin: 20px auto 0;
+      max-width: 560px;
+      background: linear-gradient(135deg, #0b3d91 0%, #1b62b0 100%);
+      border-radius: 18px;
+      padding: 24px;
+      color: #fff;
+      box-shadow: 0 14px 32px rgba(11, 61, 145, 0.32);
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .companion-roulette::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        circle at top right,
+        rgba(255, 215, 0, 0.35),
+        transparent 55%
+      );
+      pointer-events: none;
+    }
+    .companion-roulette.is-visible {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .companion-roulette.is-complete .companion-name {
+      color: #ffd447;
+    }
+    .companion-stage {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+    .companion-nameplate {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .companion-country {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 107, 107, 0.95);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      font-size: 0.85em;
+    }
+    .companion-name {
+      font-size: 1.6em;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .companion-scoreboard {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .score {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.65);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      min-width: 120px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.12);
+      transition: all 0.3s ease;
+    }
+    .score.is-active {
+      background: #ffd447;
+      color: #1f2a44;
+      border-color: #ffd447;
+      box-shadow: 0 0 16px rgba(255, 212, 71, 0.65);
+    }
+    .companion-light {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 255, 255, 0.6),
+        rgba(255, 255, 255, 0.1)
+      );
+      margin-top: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+    .companion-light.is-glowing {
+      opacity: 1;
+      animation: ipponGlow 0.8s ease-in-out infinite alternate;
+    }
+    .companion-status {
+      margin: 18px 0 0;
+      font-size: 1.05em;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+    }
+    .companion-result-line {
+      margin-top: 14px;
+      font-weight: 700;
+      color: #0b3d91;
+      letter-spacing: 0.04em;
+    }
+    @keyframes ipponGlow {
+      from {
+        box-shadow: 0 0 12px rgba(255, 212, 71, 0.45);
+      }
+      to {
+        box-shadow: 0 0 26px rgba(255, 212, 71, 0.9);
+      }
     }
     
     /* フィルターエリア */
@@ -198,7 +370,6 @@
       color: #666;
       font-size: 0.95em;
     }
-    /* 🆕 営業時間のバッジ */
     .open-status {
       display: inline-block;
       padding: 4px 12px;
@@ -303,6 +474,22 @@
       .button-group {
         flex-direction: column;
       }
+      .companion-stage {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .companion-scoreboard {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .score {
+        flex: 1;
+        min-width: auto;
+      }
+      .companion-name {
+        font-size: 1.4em;
+      }
       .restaurant-photo {
         height: 150px;
       }
@@ -318,6 +505,32 @@
     <p class="subtitle">条件を選んで、今日のランチを決めよう！</p>
     
     <div id="status">位置情報を取得中...</div>
+    
+    <!-- 🆕 同行者チェックボックス -->
+    <div class="companion-toggle">
+      <label for="companionCheckbox">
+        <input type="checkbox" id="companionCheckbox" />
+        <span>🤝 一緒に行く人も決める</span>
+      </label>
+    </div>
+
+    <!-- 🆕 同行者ルーレット表示エリア -->
+    <div id="companionRoulette" class="companion-roulette" aria-hidden="true">
+      <div class="companion-stage">
+        <div class="companion-nameplate">
+          <span class="companion-country" id="companionCountryDisplay">---</span>
+          <span class="companion-name" id="companionNameDisplay">選手未決定</span>
+        </div>
+        <div class="companion-scoreboard">
+          <span class="score waza" id="companionScoreWaza">WAZA-ARI</span>
+          <span class="score ippon" id="companionScoreIppon">IPPON</span>
+        </div>
+      </div>
+      <div class="companion-light" id="companionIpponLight"></div>
+      <p class="companion-status" id="companionStatusText">
+        畳の上で選手がウォームアップ中...
+      </p>
+    </div>
     
     <!-- フィルターセクション -->
     <div class="filter-section">
@@ -394,7 +607,7 @@
         </div>
       </div>
       
-      <!-- 🆕 営業時間 -->
+      <!-- 営業時間 -->
       <div class="filter-group">
         <label class="group-title">🕐 営業時間</label>
         <div class="filter-options">
