@@ -1,526 +1,385 @@
 let userLocation = null;
-let restaurants = [
-  {
-    id: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-    name: "カレーハウスCoCo壱番屋",
-    genre: "カレー",
-    address: "東京都渋谷区道玄坂1-2-3",
-    lat: 35.6594,
-    lng: 139.6981,
-    distance: 600,
-    travelTime: 8,
-    budget: "1000円以下",
-    priceLevel: 2,
-    mood: ["がっつり"],
-    rating: 4.2,
-    isOpen: true,
-    placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-  },
-];
-let selectedRestaurant = null; // To store the restaurant selected by roulette
-let companionRouletteTimer = null;
-let companionRouletteTimeout = null;
+let allRestaurants = [];
+let filteredRestaurants = [];
 
-// 初期化
-async function init() {
-  try {
-    // 位置情報取得
-    const position = await getCurrentPosition();
-    userLocation = {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    };
-
-    document.getElementById("status").textContent = "📍 現在地: 中野坂上駅";
-
-    // 店舗検索
-    await fetchNearbyRestaurants(800); // Initial search radius of 800m
-  } catch (error) {
-    console.error("Error:", error);
-    document.getElementById("status").textContent =
-      "❌ エラーが発生しました: " + error.message;
-    handleLocationError(error);
+// DOMが完全に読み込まれてから実行
+document.addEventListener('DOMContentLoaded', () => {
+  const searchBtn = document.getElementById('searchBtn');
+  const rouletteBtn = document.getElementById('rouletteBtn');
+  
+  if (searchBtn) {
+    searchBtn.addEventListener('click', applyFiltersAndDisplay);
   }
-}
-
-// 位置情報取得
-function getCurrentPosition() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("位置情報がサポートされていません"));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000, // 5分間キャッシュ
-    });
-  });
-}
-
-// Google Places API呼び出し
-function fetchNearbyRestaurants(radius) {
-  return new Promise((resolve, reject) => {
-    // Check if google.maps.places is available
-    if (
-      typeof google === "undefined" ||
-      typeof google.maps === "undefined" ||
-      typeof google.maps.places === "undefined"
-    ) {
-      reject(
-        new Error(
-          "Google Places APIが読み込まれていません。APIキーを確認してください。"
-        )
-      );
-      return;
-    }
-
-    const map = new google.maps.Map(document.createElement("div"));
-    const service = new google.maps.places.PlacesService(map);
-
-    const request = {
-      location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
-      radius: radius,
-      type: "restaurant",
-      language: "ja",
-    };
-
-    service.nearbySearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        restaurants = formatRestaurantData(
-          results,
-          userLocation.lat,
-          userLocation.lng
-        );
-        document.getElementById(
-          "restaurant-count"
-        ).textContent = `😎 周辺の店舗: ${restaurants.length}件見つかりました`;
-        resolve(restaurants);
-      } else if (
-        status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS
-      ) {
-        restaurants = [];
-        document.getElementById(
-          "restaurant-count"
-        ).textContent = `😎 周辺の店舗: 0件見つかりませんでした`;
-        resolve([]);
-      } else {
-        reject(new Error("店舗検索に失敗しました: " + status));
+  
+  if (rouletteBtn) {
+    rouletteBtn.addEventListener('click', executeRoulette);
+  }
+  
+  // 移動時間が変更されたらAPI再呼び出し
+  const timeRadios = document.querySelectorAll('input[name="time"]');
+  timeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (userLocation) {
+        searchNearbyRestaurants();
       }
     });
   });
-}
+  
+  getCurrentLocation();
+});
 
-// 距離計算(Haversine formula)
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // 地球の半径(m)
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return Math.round(R * c); // メートル
-}
-
-// データ整形
-function formatRestaurantData(apiResults, userLat, userLng) {
-  return apiResults.map((place) => ({
-    id: place.place_id,
-    name: place.name,
-    genre: extractGenre(place.types),
-    address: place.vicinity,
-    lat: place.geometry.location.lat,
-    lng: place.geometry.location.lng,
-    distance: calculateDistance(
-      userLat,
-      userLng,
-      place.geometry.location.lat,
-      place.geometry.location.lng
-    ),
-    travelTime: Math.ceil(
-      calculateDistance(
-        userLat,
-        userLng,
-        place.geometry.location.lat,
-        place.geometry.location.lng
-      ) / 80
-    ), // 80m/分
-    budget: convertPriceLevel(place.price_level),
-    priceLevel: place.price_level || 2,
-    mood: extractMood(place.types),
-    rating: place.rating || 0,
-    isOpen: place.opening_hours?.open_now || null,
-    placeId: place.place_id,
-  }));
-}
-
-// ジャンル抽出
-function extractGenre(types) {
-  const genreMap = {
-    ramen_restaurant: "ラーメン",
-    sushi_restaurant: "寿司",
-    curry_restaurant: "カレー",
-    italian_restaurant: "イタリアン",
-    french_restaurant: "フレンチ",
-    yakiniku_restaurant: "焼肉",
-    cafe: "カフェ",
-    bakery: "ベーカリー",
-    japanese_restaurant: "和食",
-    restaurant: "レストラン",
-    food: "料理",
-  };
-
-  for (let type of types) {
-    if (genreMap[type]) return genreMap[type];
+// 現在地取得
+function getCurrentLocation() {
+  const statusElement = document.getElementById('status');
+  
+  if (!navigator.geolocation) {
+    showError('位置情報がサポートされていないブラウザです');
+    return;
   }
-  return "その他";
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      userLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+      
+      if (statusElement) {
+        statusElement.innerHTML = `📍 現在地を取得しました`;
+      }
+      
+      const searchBtn = document.getElementById('searchBtn');
+      const rouletteBtn = document.getElementById('rouletteBtn');
+      if (searchBtn) searchBtn.style.display = 'block';
+      if (rouletteBtn) rouletteBtn.style.display = 'block';
+      
+      searchNearbyRestaurants();
+    },
+    error => {
+      let errorMsg = '位置情報の取得に失敗しました: ';
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMsg += '位置情報の使用が拒否されました。ブラウザの設定を確認してください。';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMsg += '位置情報が利用できません。';
+          break;
+        case error.TIMEOUT:
+          errorMsg += 'タイムアウトしました。';
+          break;
+        default:
+          errorMsg += error.message;
+      }
+      showError(errorMsg);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000
+    }
+  );
 }
 
-// 気分抽出
+// 周辺の飲食店を検索
+async function searchNearbyRestaurants() {
+  if (!userLocation) {
+    showError('位置情報が取得できていません');
+    return;
+  }
+
+  const resultElement = document.getElementById('result');
+  if (resultElement) {
+    resultElement.innerHTML = '<p class="loading">🔍 検索中...</p>';
+  }
+
+  const selectedTime = document.querySelector('input[name="time"]:checked');
+  const radius = selectedTime ? parseFloat(selectedTime.value) : 800;
+
+  toggleButtons(false);
+
+  try {
+    if (typeof CONFIG === 'undefined' || !CONFIG.GOOGLE_API_KEY) {
+      throw new Error('APIキーが設定されていません。config.jsを確認してください。');
+    }
+
+    const url = 'https://places.googleapis.com/v1/places:searchNearby';
+    
+    const requestBody = {
+      includedTypes: ["restaurant"],
+      maxResultCount: 20,
+      locationRestriction: {
+        circle: {
+          center: {
+            latitude: userLocation.lat,
+            longitude: userLocation.lng
+          },
+          radius: radius
+        }
+      },
+      languageCode: "ja"
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': CONFIG.GOOGLE_API_KEY,
+        // 🆕 places.photos を追加
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.googleMapsUri,places.id,places.photos'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.places || data.places.length === 0) {
+      if (resultElement) {
+        resultElement.innerHTML = 
+          '<p class="error">⚠️ 周辺に飲食店が見つかりませんでした。移動時間を長くしてみてください。</p>';
+      }
+      allRestaurants = [];
+      filteredRestaurants = [];
+      updateResultCount();
+      return;
+    }
+
+    allRestaurants = data.places.map(place => formatRestaurantData(place));
+    applyFiltersAndDisplay();
+
+  } catch (error) {
+    console.error('Error:', error);
+    showError('検索中にエラーが発生しました: ' + error.message);
+  } finally {
+    toggleButtons(true);
+  }
+}
+
+// 店舗データを整形
+function formatRestaurantData(place) {
+  const distance = calculateDistance(
+    userLocation.lat,
+    userLocation.lng,
+    place.location.latitude,
+    place.location.longitude
+  );
+  
+  // 🆕 写真URLを生成
+  let photoUrl = null;
+  if (place.photos && place.photos.length > 0) {
+    const photoName = place.photos[0].name;
+    // Places API (New) のPhoto URL形式
+    photoUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${CONFIG.GOOGLE_API_KEY}&maxHeightPx=400&maxWidthPx=600`;
+  }
+  
+  return {
+    id: place.id,
+    name: place.displayName?.text || '店名不明',
+    address: place.formattedAddress || '住所不明',
+    lat: place.location.latitude,
+    lng: place.location.longitude,
+    distance: distance,
+    travelTime: Math.ceil(distance / 80),
+    rating: place.rating || null,
+    priceLevel: place.priceLevel || null,
+    types: place.types || [],
+    googleMapsUri: place.googleMapsUri || null,
+    mood: extractMood(place.types || []),
+    photoUrl: photoUrl  // 🆕 写真URLを追加
+  };
+}
+
+// typesから気分を判定
 function extractMood(types) {
   const moods = [];
+  
   const moodMap = {
-    さっぱり: ["japanese_restaurant", "sushi_restaurant", "salad", "healthy"],
-    がっつり: [
-      "ramen_restaurant",
-      "yakiniku_restaurant",
-      "curry_restaurant",
-      "meat",
-    ],
-    甘いもの: ["cafe", "bakery", "dessert", "ice_cream"],
-    おしゃれ: ["italian_restaurant", "french_restaurant", "cafe", "bistro"],
+    'light': ['sushi_restaurant', 'japanese_restaurant', 'seafood_restaurant', 'salad'],
+    'heavy': ['ramen_restaurant', 'yakiniku_restaurant', 'barbecue_restaurant', 'curry_restaurant', 'steak_house', 'hamburger_restaurant'],
+    'sweet': ['cafe', 'bakery', 'dessert_restaurant', 'ice_cream_shop', 'coffee_shop'],
+    'fancy': ['italian_restaurant', 'french_restaurant', 'fine_dining_restaurant', 'wine_bar', 'spanish_restaurant']
   };
-
+  
   for (let [mood, keywords] of Object.entries(moodMap)) {
-    if (types.some((type) => keywords.includes(type))) {
+    if (types.some(type => keywords.includes(type))) {
       moods.push(mood);
     }
   }
-
-  return moods.length > 0 ? moods : ["がっつり"]; // デフォルト
+  
+  return moods;
 }
 
-// price_level変換
-function convertPriceLevel(level) {
-  if (level === 0) return "無料";
-  if (level === 1) return "500円以下";
-  if (level === 2) return "1000円以下";
-  if (level >= 3) return "それ以上";
-  return "不明";
-}
-
-// エラーハンドリング
-function handleLocationError(error) {
-  let message;
-
-  switch (error.code) {
-    case error.PERMISSION_DENIED:
-      message =
-        "位置情報の使用が拒否されました。ブラウザの設定を確認してください。";
-      break;
-    case error.POSITION_UNAVAILABLE:
-      message = "位置情報が取得できませんでした。";
-      break;
-    case error.TIMEOUT:
-      message = "位置情報の取得がタイムアウトしました。";
-      break;
-    default:
-      message = "エラーが発生しました。";
-  }
-
-  document.getElementById("status").textContent = "❌ " + message;
-  // フォールバック: デフォルト位置(例: 東京駅)を使用
-  userLocation = { lat: 35.6943, lng: 139.676 }; // 中野坂上駅
-  document.getElementById("status").textContent = "📍 現在地: 中野坂上駅";
-  fetchNearbyRestaurants(800); // デフォルト位置で再検索
-}
-
-// フィルタリングロジック
-function filterRestaurants(allRestaurants, budget, mood, travelTime) {
-  console.log(allRestaurants, budget, mood, travelTime);
-  return allRestaurants.filter((restaurant) => {
-    // 予算チェック
-    if (budget && restaurant.budget !== budget) return false;
-
-    // 気分チェック(配列内に含まれているか)
-    if (mood && !restaurant.mood.includes(mood)) return false;
-
-    // 移動時間チェック
-    if (travelTime) {
-      const maxTime = parseTimeRange(travelTime); // "5分以内" → 5
-      if (restaurant.travelTime > maxTime) return false;
+// フィルターを適用して表示
+function applyFiltersAndDisplay() {
+  const budget = document.querySelector('input[name="budget"]:checked')?.value;
+  const mood = document.querySelector('input[name="mood"]:checked')?.value;
+  
+  filteredRestaurants = allRestaurants.filter(restaurant => {
+    if (budget !== 'all') {
+      if (!filterByBudget(restaurant.priceLevel, budget)) {
+        return false;
+      }
     }
-
-    // 営業中チェック(オプション)
-    // if (restaurant.isOpen === false) return false;
-
+    
+    if (mood !== 'all') {
+      if (!restaurant.mood.includes(mood)) {
+        return false;
+      }
+    }
+    
     return true;
   });
+  
+  updateResultCount();
+  displayResults(filteredRestaurants, false);
 }
 
-function parseTimeRange(timeStr) {
-  const match = timeStr.match(/(\d+)分/);
-  return match ? parseInt(match[1]) : 999; // 20分以上の場合も考慮
+// 予算でフィルタリング
+function filterByBudget(priceLevel, budget) {
+  if (!priceLevel) return true;
+  
+  const priceLevelMap = {
+    'PRICE_LEVEL_INEXPENSIVE': 1,
+    'PRICE_LEVEL_MODERATE': 2,
+    'PRICE_LEVEL_EXPENSIVE': 3,
+    'PRICE_LEVEL_VERY_EXPENSIVE': 4
+  };
+  
+  const level = priceLevelMap[priceLevel] || 2;
+  
+  if (budget === '500') return level <= 1;
+  if (budget === '1000') return level <= 2;
+  if (budget === 'over') return level >= 3;
+  
+  return true;
 }
 
 // ルーレット実行
-document.getElementById("rouletteBtn").addEventListener("click", () => {
-  const selectedBudget = document.querySelector(
-    'input[name="budget"]:checked'
-  )?.value;
-  const selectedMood = document.querySelector(
-    'input[name="mood"]:checked'
-  )?.value;
-  const selectedTravelTime = document.querySelector(
-    'input[name="travelTime"]:checked'
-  )?.value;
+function executeRoulette() {
+  if (filteredRestaurants.length === 0) {
+    alert('条件に合う店舗がありません。条件を変更してください。');
+    return;
+  }
+  
+  const randomIndex = Math.floor(Math.random() * filteredRestaurants.length);
+  const selected = filteredRestaurants[randomIndex];
+  
+  displayResults([selected], true);
+  
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
-  const filtered = filterRestaurants(
-    restaurants,
-    selectedBudget,
-    selectedMood,
-    selectedTravelTime
-  );
+// 結果を表示
+function displayResults(restaurants, isRouletteResult = false) {
+  const resultDiv = document.getElementById('result');
+  if (!resultDiv) return;
 
-  console.log(filtered);
-
-  if (filtered.length === 0) {
-    document.getElementById("result").innerHTML = `
-      <p>条件に合う店舗が見つかりませんでした。条件を変えてみてください。</p>
-    `;
-    selectedRestaurant = null;
+  if (restaurants.length === 0) {
+    resultDiv.innerHTML = '<p class="error">⚠️ 条件に合う店舗が見つかりませんでした。条件を変更してみてください。</p>';
     return;
   }
 
-  const randomIndex = Math.floor(Math.random() * filtered.length);
-  selectedRestaurant = filtered[randomIndex];
-  const withCompanion = document.getElementById("companionCheckbox").checked;
+  resultDiv.innerHTML = '';
 
-  // 結果表示
-  let resultHTML = `
-    <h2>今日のランチは『${selectedRestaurant.name}』!</h2>
-    <p>ジャンル: ${selectedRestaurant.genre}</p>
-    <p>移動時間: 徒歩約${selectedRestaurant.travelTime}分 (${
-    selectedRestaurant.distance
-  }m)</p>
-    <p>予算: ${selectedRestaurant.budget} | 評価: ${"★".repeat(
-    Math.floor(selectedRestaurant.rating)
-  )} ${selectedRestaurant.rating}</p>
-  `;
+  restaurants.forEach(restaurant => {
+    const card = createRestaurantCard(restaurant, isRouletteResult);
+    resultDiv.appendChild(card);
+  });
+}
 
-  if (withCompanion) {
-    resultHTML += `
-      <div class="companion-roulette">
-        <p id="companionRouletteText">♿ 同行者を抽選中...</p>
-      </div>
-    `;
+// レストランカードを作成
+function createRestaurantCard(restaurant, isHighlight = false) {
+  const card = document.createElement('div');
+  card.className = isHighlight ? 'restaurant-card selected-restaurant' : 'restaurant-card';
+  
+  let priceDisplay = '不明';
+  if (restaurant.priceLevel) {
+    const priceMap = {
+      'PRICE_LEVEL_FREE': '無料',
+      'PRICE_LEVEL_INEXPENSIVE': '¥',
+      'PRICE_LEVEL_MODERATE': '¥¥',
+      'PRICE_LEVEL_EXPENSIVE': '¥¥¥',
+      'PRICE_LEVEL_VERY_EXPENSIVE': '¥¥¥¥'
+    };
+    priceDisplay = priceMap[restaurant.priceLevel] || '不明';
   }
-
-  resultHTML += `
-    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      selectedRestaurant.name
-    )}&query_place_id=${selectedRestaurant.placeId}" target="_blank">
-      📍 地図で見る
-    </a>
-    <button id="addToOutlookBtn" style="display:block; margin-top:10px;">
-      📅 Outlookに予定を追加
-    </button>
+  
+  // 🆕 画像があれば表示
+  const photoHTML = restaurant.photoUrl 
+    ? `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-photo" onerror="this.style.display='none'">` 
+    : '<div class="no-photo">📷 画像なし</div>';
+  
+  card.innerHTML = `
+    ${photoHTML}
+    <div class="restaurant-info">
+      <h3>${restaurant.name}</h3>
+      <p>📍 ${restaurant.address}</p>
+      <p>🚶 徒歩約${restaurant.travelTime}分 (${restaurant.distance}m)</p>
+      <p>⭐ 評価: ${restaurant.rating ? restaurant.rating.toFixed(1) + ' / 5.0' : '不明'}</p>
+      <p>💰 価格: ${priceDisplay}</p>
+      ${restaurant.googleMapsUri ? 
+        `<a href="${restaurant.googleMapsUri}" target="_blank" class="map-link">📍 地図で見る</a>` : 
+        ''}
+    </div>
   `;
+  
+  return card;
+}
 
-  document.getElementById("result").innerHTML = resultHTML;
-
-  if (withCompanion) {
-    runCompanionRoulette(CONFIG.FUKUMURO_EMAIL);
-  }
-
-  // Outlookボタンのイベント
-  document.getElementById("addToOutlookBtn").addEventListener("click", () => {
-    if (selectedRestaurant) {
-      downloadICSFile(selectedRestaurant, withCompanion);
-      alert(
-        "カレンダーファイルをダウンロードしました！\nファイルを開いてOutlookに登録してください。"
-      );
+// 結果件数を更新
+function updateResultCount() {
+  const countElement = document.getElementById('resultCount');
+  if (countElement) {
+    if (filteredRestaurants.length > 0) {
+      countElement.textContent = `🍽️ 条件に合う店舗: ${filteredRestaurants.length}件`;
+    } else if (allRestaurants.length > 0) {
+      countElement.textContent = '⚠️ 条件に合う店舗がありません';
     } else {
-      alert("店舗が選択されていません。");
+      countElement.textContent = '';
     }
-  });
-});
-
-function runCompanionRoulette(emailAddress) {
-  const rouletteElement = document.getElementById("companionRouletteText");
-  if (!rouletteElement) return;
-
-  if (companionRouletteTimer) {
-    clearInterval(companionRouletteTimer);
-    companionRouletteTimer = null;
-  }
-  if (companionRouletteTimeout) {
-    clearTimeout(companionRouletteTimeout);
-    companionRouletteTimeout = null;
-  }
-
-  const frames = [
-    "♿ 同行者: シークレットゲスト",
-    "♿ 同行者: マネージャー",
-    "♿ 同行者: ミステリーさん",
-    "♿ 同行者: ???",
-    "♿ 同行者: スペシャルゲスト",
-    "♿ 同行者: 福室さん",
-  ];
-
-  let index = 0;
-  rouletteElement.classList.add("is-rolling");
-
-  companionRouletteTimer = setInterval(() => {
-    rouletteElement.textContent = frames[index % frames.length];
-    index += 1;
-  }, 120);
-
-  companionRouletteTimeout = setTimeout(() => {
-    if (companionRouletteTimer) {
-      clearInterval(companionRouletteTimer);
-      companionRouletteTimer = null;
-    }
-    rouletteElement.classList.remove("is-rolling");
-    rouletteElement.textContent = "♿ 同行者: 福室さん";
-    companionRouletteTimeout = null;
-    notifyCompanionByEmail(emailAddress);
-  }, 2200);
-}
-
-function notifyCompanionByEmail(emailAddress) {
-  if (!emailAddress) {
-    console.warn(
-      "メールアドレスが設定されていないため、通知をスキップします。"
-    );
-    return;
-  }
-
-  fetch("/send-email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email: emailAddress,
-      subject: "ランチのお誘い",
-      message: "飯いくぞ！",
-    }),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("メール送信に失敗しました");
-      }
-      return response.json();
-    })
-    .then((data) => {
-      if (!data.ok) {
-        throw new Error(data.error || "メール送信に失敗しました");
-      }
-      console.log("同行者にメールを送信しました。");
-    })
-    .catch((error) => {
-      console.error("メール送信エラー:", error);
-    });
-}
-
-// .icsファイル生成・ダウンロード
-function downloadICSFile(restaurant, withCompanion) {
-  const today = new Date();
-  const lunchStart = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-    12,
-    0,
-    0
-  );
-  const lunchEnd = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-    13,
-    0,
-    0
-  );
-
-  const formatICSDate = (date) => {
-    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  };
-
-  let icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ランチルーレット//JP\nCALSCALE:GREGORIAN\nMETHOD:REQUEST\nBEGIN:VEVENT\nUID:lunch-${Date.now()}@lunch-roulette.com\nDTSTAMP:${formatICSDate(
-    new Date()
-  )}\nDTSTART:${formatICSDate(lunchStart)}\nDTEND:${formatICSDate(
-    lunchEnd
-  )}\nSUMMARY:🍴 ランチ @ ${restaurant.name}\nLOCATION:${restaurant.name} - ${
-    restaurant.address
-  }\nDESCRIPTION:ランチルーレットで決定！\n\nジャンル: ${
-    restaurant.genre
-  }\n予算: ${restaurant.budget}\n評価: ${"★".repeat(
-    Math.floor(restaurant.rating)
-  )}\n移動時間: 徒歩約${
-    restaurant.travelTime
-  }分\n\nGoogle Maps: https://www.google.com/maps/search/?api=1&query_place_id=${
-    restaurant.placeId
-  }\n`;
-
-  if (withCompanion) {
-    icsContent += `ATTENDEE;CN=福室;RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:${
-      CONFIG.FUKUMURO_EMAIL || "fukumuro@example.com"
-    }\n`;
-  }
-
-  icsContent += `STATUS:CONFIRMED\nSEQUENCE:0\nEND:VEVENT\nEND:VCALENDAR`;
-
-  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `lunch-${restaurant.name.replace(
-    /[^a-zA-Z0-9]/g,
-    "-"
-  )}-${Date.now()}.ics`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-}
-
-// フィルター変更時の処理 (移動時間フィルターのみAPI再検索が必要)
-document.querySelectorAll('input[name="travelTime"]').forEach((radio) => {
-  radio.addEventListener("change", async (event) => {
-    const selectedTravelTime = event.target.value;
-    const radius = getRadiusFromTravelTime(selectedTravelTime);
-    if (userLocation) {
-      document.getElementById("status").textContent = "店舗情報を更新中...";
-      await fetchNearbyRestaurants(radius);
-      document.getElementById(
-        "status"
-      ).textContent = `📍 現在地: ${userLocation.lat.toFixed(
-        4
-      )}, ${userLocation.lng.toFixed(4)}`;
-    }
-  });
-});
-
-function getRadiusFromTravelTime(travelTime) {
-  switch (travelTime) {
-    case "5分以内":
-      return 400;
-    case "10分以内":
-      return 800;
-    case "15分以内":
-      return 1200;
-    case "20分以上":
-      return 1600;
-    default:
-      return 800; // Default to 10 minutes
   }
 }
 
-// ページ読み込み時に初期化
-window.addEventListener("load", init);
+// ボタンの有効/無効を切り替え
+function toggleButtons(enabled) {
+  const searchBtn = document.getElementById('searchBtn');
+  const rouletteBtn = document.getElementById('rouletteBtn');
+  
+  if (searchBtn) {
+    searchBtn.disabled = !enabled;
+    searchBtn.textContent = enabled ? '🔍 条件で検索' : '検索中...';
+  }
+  
+  if (rouletteBtn) {
+    rouletteBtn.disabled = !enabled;
+  }
+}
+
+// 2地点間の距離を計算
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return Math.round(R * c);
+}
+
+// エラー表示
+function showError(message) {
+  const statusElement = document.getElementById('status');
+  if (statusElement) {
+    statusElement.innerHTML = `<div class="error">❌ ${message}</div>`;
+  }
+  console.error('Error:', message);
+}
